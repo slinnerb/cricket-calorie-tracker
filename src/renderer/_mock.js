@@ -66,6 +66,7 @@
       }, 2200)),
       test: () => new Promise(r => setTimeout(() => r({ ok: true, data: { ms: 240, model: 'qwen2.5:7b' } }), 500))
     },
+    hints: { add: (list) => ok({ rev: 1, count: (list || []).length }), list: () => ok([]) },
     data: { export: () => ok({ canceled: true }), import: () => ok({ canceled: true }) },
     updates: { getState: () => ok({ status: 'not-available', currentVersion: '1.0.0' }), check: () => ok({ status: 'not-available' }), install: () => ok(false), onStatus: () => () => {} },
     app: { info: () => ok({ version: '1.0.0 (preview)', dataPath: '(browser preview — localStorage)', activeProfileId: read().global.activeProfileId }) }

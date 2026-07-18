@@ -454,6 +454,7 @@ function openEntryModal(entry) {
   state.editingWasPending = !!(entry && entry.estimateStatus === 'pending');
   state.editReestimated = false;
   state.lastEstimate = null;
+  state.editItems = [];
   $('#entryModalTitle').textContent = entry ? 'Edit entry' : 'Add something you ate or drank';
   $('#foodText').value = entry ? entry.text : '';
   $('#foodTime').value = entry ? toTimeInput(entry.datetime) : nowTimeInput();
@@ -471,14 +472,40 @@ function openEntryModal(entry) {
   setTimeout(() => $('#foodText').focus(), 50);
 }
 function renderEstItems(items) {
+  // Editable per-item calories (B1). Keeping the original value lets us detect a
+  // correction and remember it for this profile.
+  state.editItems = (items || []).map(it => ({ ...it, _orig: Math.round(it.calories || 0) }));
   const box = $('#estItems'); box.innerHTML = '';
-  for (const it of items) {
-    const row = document.createElement('div'); row.className = 'est-item';
-    const q = it.qty > 1 ? ` ×${it.qty}` : '';
-    row.innerHTML = `<span>${escapeHtml(it.name)}${q}${it.portion ? ' <span class="ei-cal">(' + escapeHtml(it.portion) + ')</span>' : ''}</span><span class="ei-cal">${Math.round(it.calories)} kcal</span>`;
+  state.editItems.forEach((it, i) => {
+    const row = document.createElement('div'); row.className = 'est-item edit';
+    const label = document.createElement('span'); label.className = 'ei-label';
+    label.innerHTML = `${escapeHtml(it.name)}${it.qty > 1 ? ` <span class="ei-qty">×${it.qty}</span>` : ''}`;
+    const input = document.createElement('input');
+    input.type = 'number'; input.min = '0'; input.step = '1'; input.className = 'ei-input';
+    input.value = Math.round(it.calories || 0);
+    input.setAttribute('aria-label', it.name + ' calories');
+    input.addEventListener('input', () => onItemCaloriesChange(i, input.value));
+    const unit = document.createElement('span'); unit.className = 'ei-unit'; unit.textContent = 'kcal';
+    row.appendChild(label); row.appendChild(input); row.appendChild(unit);
     box.appendChild(row);
-  }
+  });
 }
+function onItemCaloriesChange(i, val) {
+  const it = state.editItems[i]; if (!it) return;
+  const old = it.calories || 0;
+  const next = Math.max(0, Math.round(Number(val) || 0));
+  if (old > 0) { const f = next / old; it.carbs_g = round1((it.carbs_g || 0) * f); it.sugar_g = round1((it.sugar_g || 0) * f); it.protein_g = round1((it.protein_g || 0) * f); it.fat_g = round1((it.fat_g || 0) * f); }
+  it.calories = next;
+  resumItemTotals();
+}
+function resumItemTotals() {
+  if (!state.editItems || !state.editItems.length) return;
+  const sum = k => state.editItems.reduce((a, it) => a + (Number(it[k]) || 0), 0);
+  $('#fCalories').value = Math.round(sum('calories'));
+  $('#fCarbs').value = round1(sum('carbs_g')); $('#fSugar').value = round1(sum('sugar_g'));
+  $('#fProtein').value = round1(sum('protein_g')); $('#fFat').value = round1(sum('fat_g'));
+}
+function round1(n) { return Math.round(n * 10) / 10; }
 async function reestimate() {
   const text = $('#foodText').value.trim();
   if (!text) { toast('Type what you had first', 'err'); return; }
@@ -524,21 +551,44 @@ async function saveEntry() {
     entry.carbs_g = 0; entry.sugar_g = 0; entry.protein_g = 0; entry.fat_g = 0;
     entry.items = []; entry.estimateError = '';
   } else {
+    const itemsChanged = (state.editItems || []).some(it => it._orig != null && Math.abs((it.calories || 0) - it._orig) > 3);
     entry.calories = Math.round(num('fCalories')); entry.carbs_g = num('fCarbs'); entry.sugar_g = num('fSugar');
     entry.protein_g = num('fProtein'); entry.fat_g = num('fFat');
-    if (state.editReestimated && state.lastEstimate) {
-      entry.items = state.lastEstimate.items; entry.notes = state.lastEstimate.notes;
+    entry.items = cleanItems(state.editItems);
+    if (state.lastEstimate && state.editReestimated) entry.notes = state.lastEstimate.notes;
+    if (state.editReestimated && !itemsChanged && state.lastEstimate) {
       entry.confidence = state.lastEstimate.confidence;
       entry.calories_low = state.lastEstimate.calories_low; entry.calories_high = state.lastEstimate.calories_high;
     } else {
-      // manual override: no AI confidence, and the range collapses to the entered value
+      // manual or corrected: no AI confidence, range collapses to the entered value
       entry.confidence = ''; entry.calories_low = entry.calories; entry.calories_high = entry.calories;
     }
   }
   const res = await window.api.entries.update(entry);
   if (!res.ok) { toast('Could not save: ' + res.error, 'err'); return; }
-  closeModal('entryModal'); toast('Saved', 'ok'); await refresh();
+  // B1: remember per-item corrections so future estimates for these foods improve.
+  let learned = 0;
+  if (state.editItems && state.editItems.length) {
+    const hints = [];
+    for (const it of state.editItems) {
+      if (it._orig != null && Math.abs((it.calories || 0) - it._orig) > 3) {
+        const per = it.qty > 1 ? Math.round(it.calories / it.qty) : Math.round(it.calories);
+        hints.push({ key: it.name, line: `a "${it.name}" is about ${per} kcal for me` });
+      }
+    }
+    if (hints.length) { window.api.hints.add(hints); learned = hints.length; }
+  }
+  closeModal('entryModal');
+  toast(learned ? "Saved — I'll remember that for next time" : 'Saved', 'ok');
+  await refresh();
   if (status === 'pending') fireEstimate(pid, res.data); // keep estimating the (possibly edited) text
+}
+function cleanItems(items) {
+  return (items || []).map(it => ({
+    name: it.name, qty: it.qty || 1, portion: it.portion || '',
+    calories: Math.round(it.calories || 0),
+    carbs_g: round1(it.carbs_g || 0), sugar_g: round1(it.sugar_g || 0), protein_g: round1(it.protein_g || 0), fat_g: round1(it.fat_g || 0)
+  }));
 }
 async function fireEstimate(profileId, entry) {
   try {

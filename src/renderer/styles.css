@@ -231,6 +231,13 @@ button { font-family: inherit; cursor: pointer; }
 .est-grid .field.small { max-width: none; }
 .est-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .est-item { display: flex; justify-content: space-between; font-size: 12.5px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+.est-item.edit { align-items: center; gap: 10px; }
+.est-item.edit .ei-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.est-item.edit .ei-qty { color: var(--accent); font-weight: 600; }
+.est-item.edit .ei-input { width: 72px; text-align: right; background: var(--bg); border: 1px solid var(--line); color: var(--text); border-radius: 7px; padding: 4px 7px; font: inherit; color-scheme: dark; }
+:root[data-theme="light"] .est-item.edit .ei-input { color-scheme: light; }
+.est-item.edit .ei-input:focus { border-color: var(--accent); outline: none; }
+.est-item.edit .ei-unit { color: var(--muted); font-size: 11.5px; flex: none; }
 .est-item .ei-cal { color: var(--muted); font-variant-numeric: tabular-nums; }
 .est-notes { font-size: 12px; font-style: italic; }
 .conf { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; padding: 2px 7px; border-radius: 6px; margin-left: 8px; }

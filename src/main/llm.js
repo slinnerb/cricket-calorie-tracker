@@ -40,16 +40,21 @@ Respond with ONLY a JSON object, no prose, no markdown fences, in exactly this s
 
 All numbers must be plain numbers (no units). Round to whole calories and one decimal for grams. The item calories must sum to "calories". Make the low/high range HONEST: keep it tight when the food and portion are clear, and widen it when the portion, recipe, or cooking method is uncertain — a wider range should go with lower confidence. If the input is not food or drink, return all zeros with a note explaining why.`;
 
-function estimatorMessages(text) {
+function estimatorMessages(text, hints) {
+  let sys = SYSTEM_PROMPT;
+  if (Array.isArray(hints) && hints.length) {
+    sys += `\n\nPersonal notes about THIS user's usual foods — trust them to calibrate portions/calories when the input matches one:\n`
+      + hints.slice(0, 24).map(h => '- ' + String(h)).join('\n');
+  }
   return [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: sys },
     { role: 'user', content: `Estimate the nutrition for: "${text}"` }
   ];
 }
 
-async function estimate(settings, text) {
+async function estimate(settings, text, hints) {
   const ai = settings.ai || {};
-  const raw = await chat(ai, estimatorMessages(text));
+  const raw = await chat(ai, estimatorMessages(text, hints));
   const parsed = extractJSON(raw);
   if (!parsed) {
     const err = new Error('The AI did not return usable JSON.');

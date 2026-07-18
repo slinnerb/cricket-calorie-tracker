@@ -180,6 +180,23 @@ function run() {
     ok(m2.getActiveProfileId() === null, 'malformed active id degrades to the gate');
   }
 
+  // 12) Per-profile hints (B1): add, dedupe, rev bump, per-profile isolation -----
+  {
+    const dir = fresh();
+    const m = new ProfileManager(dir);
+    const a = m.createProfile({ name: 'A' }).profile.id;
+    ok(m.getHintsFor(a).rev === 0 && m.getHintsFor(a).lines.length === 0, 'new profile has no hints');
+    const r1 = m.addActiveHints([{ key: 'latte', line: 'a "latte" is about 190 kcal for me' }]);
+    ok(r1.rev === 1 && m.getHintsFor(a).lines.length === 1, 'adding a hint bumps rev and stores it');
+    m.addActiveHints([{ key: 'Latte', line: 'a "latte" is about 210 kcal for me' }]); // same food (case-insensitive)
+    const h = m.getHintsFor(a);
+    ok(h.lines.length === 1 && h.lines[0].includes('210'), 'same food replaces the prior hint (newest wins)');
+    ok(h.rev === 2, 'rev increments on each change');
+    const b = m.createProfile({ name: 'B' }).profile.id;
+    ok(m.getHintsFor(b).lines.length === 0, 'hints do not leak across profiles');
+    ok(m.getHintsFor(a).lines.length === 1, "profile A's hints intact after switching to B");
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   app.exit(fail ? 1 : 0);
 }

@@ -33,6 +33,10 @@ contextBridge.exposeInMainWorld('api', {
     estimateEntry: (profileId, entryId, text) => invoke('ai:estimateEntry', { profileId, entryId, text }),
     test: (overrideAi) => invoke('ai:test', overrideAi)
   },
+  hints: {
+    add: (list) => invoke('hints:add', list),
+    list: () => invoke('hints:list')
+  },
   data: {
     export: () => invoke('data:export'),
     import: () => invoke('data:import')

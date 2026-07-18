@@ -63,7 +63,7 @@ class Store {
   constructor(filePath) {
     this.filePath = filePath;
     this.bakPath = filePath + '.bak';
-    this.data = { version: 1, profile: null, settings: clone(DEFAULT_SETTINGS), entries: [] };
+    this.data = { version: 1, profile: null, settings: clone(DEFAULT_SETTINGS), entries: [], hints: [], hintsRev: 0 };
     this._load();
   }
 
@@ -87,7 +87,7 @@ class Store {
       try {
         if (fs.existsSync(this.filePath)) fs.copyFileSync(this.filePath, this.filePath + '.corrupt-' + Date.now());
       } catch (_) { /* ignore */ }
-      this.data = { version: 1, profile: null, settings: clone(DEFAULT_SETTINGS), entries: [] };
+      this.data = { version: 1, profile: null, settings: clone(DEFAULT_SETTINGS), entries: [], hints: [], hintsRev: 0 };
       this._save();
     }
   }
@@ -98,6 +98,8 @@ class Store {
     data.entries = Array.isArray(data.entries) ? data.entries.map(normalizeEntry) : [];
     data.settings = deepMerge(clone(DEFAULT_SETTINGS), data.settings || {});
     if (data.settings.ai) delete data.settings.ai; // AI settings are global now
+    data.hints = Array.isArray(data.hints) ? data.hints : [];   // per-profile personalization (B1)
+    data.hintsRev = Number(data.hintsRev) || 0;
     // data.profile (identity block) preserved if present
     return data;
   }
@@ -140,6 +142,25 @@ class Store {
     this.data.entries = this.data.entries.filter(e => e.id !== id);
     this._save();
     return before !== this.data.entries.length;
+  }
+
+  // ---- per-profile personalization hints (B1: the app learns this user's foods) ----
+  getHints() { return clone(this.data.hints || []); }
+  getHintsRev() { return this.data.hintsRev || 0; }
+  addHints(list) {
+    if (!Array.isArray(list) || !list.length) return { rev: this.getHintsRev(), count: (this.data.hints || []).length };
+    let hints = Array.isArray(this.data.hints) ? this.data.hints : [];
+    for (const h of list) {
+      const key = String(h && h.key || '').toLowerCase().trim().slice(0, 60);
+      const line = String(h && h.line || '').trim().slice(0, 160);
+      if (!key || !line) continue;
+      hints = hints.filter(x => x.key !== key); // one hint per food; the newest wins
+      hints.unshift({ key, line, ts: nowISO() });
+    }
+    this.data.hints = hints.slice(0, 24);
+    this.data.hintsRev = (this.data.hintsRev || 0) + 1;
+    this._save();
+    return { rev: this.data.hintsRev, count: this.data.hints.length };
   }
 
   // backup / restore (token never included)
@@ -442,6 +463,18 @@ class ProfileManager {
   deleteEntry(id) { return this._requireActive().deleteEntry(id); }
   exportJSON() { return this._requireActive().exportJSON(); }
   importJSON(t) { return this._requireActive().importJSON(t); }
+
+  // Personalization hints for a SPECIFIC profile (used to calibrate its estimates).
+  getHintsFor(profileId) {
+    let id; try { id = sanitizeProfileId(profileId); } catch (_) { return { lines: [], rev: 0 }; }
+    let store;
+    if (id === this.activeId && this.active) store = this.active;
+    else if (fs.existsSync(this._path(id))) store = new Store(this._path(id));
+    else return { lines: [], rev: 0 };
+    return { lines: store.getHints().map(h => h.line), rev: store.getHintsRev() };
+  }
+  addActiveHints(list) { return this._requireActive().addHints(list); }
+  listActiveHints() { return this._requireActive().getHints(); }
 
   // Apply an async estimate result to a SPECIFIC profile (the one active when the
   // entry was created), so switching profiles mid-estimate can't cross-write.

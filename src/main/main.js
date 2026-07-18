@@ -82,14 +82,18 @@ function registerIpc() {
 
   // ---- AI ----
   // Synchronous estimate of arbitrary text (used by "re-estimate").
-  ipcMain.handle('ai:estimate', wrap(async (text) => estimateText(text)));
+  ipcMain.handle('ai:estimate', wrap(async (text) => estimateText(text, manager.getActiveProfileId())));
+
+  // ---- personalization hints (B1) ----
+  ipcMain.handle('hints:add', wrap(async (list) => manager.addActiveHints(list)));
+  ipcMain.handle('hints:list', wrap(async () => manager.listActiveHints()));
 
   // Async estimate that applies its result to an existing (pending) entry in a
   // SPECIFIC profile. The renderer fires this without blocking Save; it resolves
   // to the updated entry (done or error) so the row can be patched in place.
   ipcMain.handle('ai:estimateEntry', async (_evt, { profileId, entryId, text }) => {
     try {
-      const est = await estimateText(text);
+      const est = await estimateText(text, profileId);
       const updated = manager.applyEstimateToProfile(profileId, entryId, {
         calories: est.calories, calories_low: est.calories_low, calories_high: est.calories_high,
         carbs_g: est.carbs_g, sugar_g: est.sugar_g, protein_g: est.protein_g, fat_g: est.fat_g,
@@ -159,11 +163,15 @@ function safeOrigin(u) { try { return new URL(u).origin.toLowerCase(); } catch (
 
 // Estimate with a persistent normalized-text cache: repeat foods return instantly
 // and identically (no per-call LLM drift), and the server is spared the work.
-async function estimateText(text) {
+// The profile's personalization hints (B1) are injected into the prompt, and the
+// cache is scoped to that profile + its hints revision.
+async function estimateText(text, profileId) {
   const s = manager.getSettingsForLLM();
-  const cached = estCache.get(s.ai, text);
+  const { lines, rev } = profileId ? manager.getHintsFor(profileId) : { lines: [], rev: 0 };
+  const ns = profileId ? `${profileId}#${rev}` : '';
+  const cached = estCache.get(s.ai, text, ns);
   if (cached) return cached;
-  const est = await llm.estimate(s, text);
-  estCache.set(s.ai, text, est);
+  const est = await llm.estimate(s, text, lines);
+  estCache.set(s.ai, text, est, ns);
   return est;
 }

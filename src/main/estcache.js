@@ -41,18 +41,20 @@ class EstimateCache {
     } catch (_) { /* best effort */ }
   }
 
-  static keyFor(ai, text) {
+  // ns scopes the key (e.g. "<profileId>#<hintsRev>") so per-user personalized
+  // estimates cache separately and invalidate when that user's notes change.
+  static keyFor(ai, text, ns) {
     const norm = String(text || '').toLowerCase().trim().replace(/\s+/g, ' ').replace(/[.!?,;:]+$/, '');
-    return `${CACHE_VERSION}|${ai.mode || 'ollama'}|${ai.model || ''}|${norm}`;
+    return `${CACHE_VERSION}|${ns || ''}|${ai.mode || 'ollama'}|${ai.model || ''}|${norm}`;
   }
 
-  get(ai, text) {
-    const v = this.map.get(EstimateCache.keyFor(ai, text));
+  get(ai, text, ns) {
+    const v = this.map.get(EstimateCache.keyFor(ai, text, ns));
     return v ? JSON.parse(JSON.stringify(v)) : null;
   }
 
-  set(ai, text, estimate) {
-    const key = EstimateCache.keyFor(ai, text);
+  set(ai, text, estimate, ns) {
+    const key = EstimateCache.keyFor(ai, text, ns);
     this.map.delete(key);            // move-to-end for simple LRU eviction
     this.map.set(key, estimate);
     if (this.map.size > this.cap) { const oldest = this.map.keys().next().value; this.map.delete(oldest); }
