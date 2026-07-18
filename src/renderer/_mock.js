@@ -2,7 +2,7 @@
 /* DEV-ONLY mock of the Electron window.api for browser preview of the multi-user
    UI. Not shipped (filtered from the build). Backed by localStorage. */
 (function () {
-  const KEY = 'cricket_preview_v3';
+  const KEY = 'cricket_preview_v4';
   const ld = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const today = ld(new Date());
   const y = new Date(); y.setDate(y.getDate() - 1); const yd = ld(y);
@@ -11,7 +11,7 @@
   const seed = {
     global: {
       ai: { mode: 'ollama', baseUrl: 'https://ai.wrenchandram.com', model: 'qwen2.5:7b', allowInsecureTLS: false, timeoutMs: 180000, apiKeySet: true },
-      activeProfileId: 'p_bj',
+      activeProfileId: null,
       profiles: [
         { id: 'p_bj', name: 'BJ', color: '#4ea1ff', avatar: '', createdAt: '', updatedAt: '' },
         { id: 'p_eric', name: 'Eric', color: '#37d67a', avatar: '🦗', createdAt: '', updatedAt: '' }

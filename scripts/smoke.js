@@ -10,8 +10,8 @@ const { ProfileManager } = require('../src/main/store');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cricket-smoke-'));
 const manager = new ProfileManager(tmp);
-// Pre-create + activate a profile so the renderer boots into the app (not the gate).
-manager.createProfile({ name: 'Smoke', color: '#4ea1ff' });
+// NOTE: intentionally NO pre-created profile — we exercise the first-run gate flow
+// (gate -> create profile) which must render the modal ABOVE the gate.
 
 const wrap = (fn) => async (_e, ...a) => {
   try { return { ok: true, data: await fn(...a) }; }
@@ -51,11 +51,35 @@ app.whenReady().then(async () => {
   try {
     await win.loadFile(path.join(__dirname, '..', 'src', 'renderer', 'index.html'));
     const r = await win.webContents.executeJavaScript(`(async () => {
+      const wait = (ms) => new Promise(r => setTimeout(r, ms));
+      await wait(250); // let init() settle
       const out = { apiExists: typeof window.api === 'object' && window.api !== null };
       if (!out.apiExists) return out;
       out.namespaces = ['settings','profiles','entries','ai','data','updates','app'].every(k => window.api[k]);
+
+      // --- first-run gate ---
+      out.gateShown = !document.querySelector('#profileGate').classList.contains('hidden');
+      out.gateShowsVersion = /\\d/.test(document.querySelector('#gateVersion').textContent);
+      const gz = Number(getComputedStyle(document.querySelector('#profileGate')).zIndex);
+      const mz = Number(getComputedStyle(document.querySelector('#entryModal')).zIndex);
+      out.modalAboveGate = mz > gz;
+
+      // --- create a profile THROUGH the gate (the path that was broken) ---
+      document.querySelector('#gateCreateBtn').click();
+      await wait(150);
+      const em = document.querySelector('#profileEditModal');
+      out.createModalVisible = !em.classList.contains('hidden');
+      const ir = em.querySelector('.modal').getBoundingClientRect();
+      const topEl = document.elementFromPoint(ir.left + ir.width / 2, ir.top + 30);
+      out.createModalClickable = em.contains(topEl); // NOT occluded by the gate
+      document.querySelector('#profileNameInput').value = 'Smoke';
+      document.querySelector('#saveProfileBtn').click();
+      await wait(350);
+      out.enteredApp = document.querySelector('#profileGate').classList.contains('hidden');
+      out.chipName = (document.querySelector('#profileName') || {}).textContent;
+
+      // --- now in the app: settings redaction + entries + updates ---
       const st = await window.api.settings.get();
-      out.settingsOk = st.ok;
       out.tokenRedacted = st.ok && st.data.ai && st.data.ai.apiKey === undefined && st.data.ai.apiKeyEnc === undefined;
       out.aiDefaults = st.ok && st.data.ai.mode === 'ollama' && !!st.data.ai.baseUrl;
       const today = (() => { const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); })();
@@ -65,8 +89,6 @@ app.whenReady().then(async () => {
       out.listOk = list.ok && list.data.length === 1;
       const up = await window.api.updates.getState();
       out.updatesOk = up.ok && up.data.status === 'dev-disabled';
-      out.profileChip = (document.querySelector('#profileName')||{}).textContent === 'Smoke';
-      out.gateHidden = document.querySelector('#profileGate').classList.contains('hidden');
       out.tabs = document.querySelectorAll('.tab').length === 2;
       return out;
     })()`);
@@ -74,14 +96,18 @@ app.whenReady().then(async () => {
     const checks = {
       'window.api exposed': r.apiExists,
       'all namespaces present': r.namespaces,
-      'settings:get ok': r.settingsOk,
+      'first-run gate shown': r.gateShown,
+      'gate shows version number': r.gateShowsVersion,
+      'modal z-index renders above gate': r.modalAboveGate,
+      'create-profile modal visible': r.createModalVisible,
+      'create-profile modal clickable over gate': r.createModalClickable,
+      'creating a profile enters the app': r.enteredApp,
+      'profile chip shows new profile': r.chipName === 'Smoke',
       'token redacted over IPC': r.tokenRedacted,
       'ollama AI defaults present': r.aiDefaults,
       'entries:add pending roundtrip': r.addPending,
       'entries:forDate returns entry': r.listOk,
       'updates state = dev-disabled': r.updatesOk,
-      'profile chip rendered (active profile)': r.profileChip,
-      'gate hidden with active profile': r.gateHidden,
       'tabs present': r.tabs,
       'no renderer console errors': consoleErrors.length === 0
     };

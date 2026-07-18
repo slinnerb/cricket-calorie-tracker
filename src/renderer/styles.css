@@ -182,7 +182,7 @@ button { font-family: inherit; cursor: pointer; }
 /* ---------- Modals ---------- */
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(6,8,12,.6); backdrop-filter: blur(3px);
-  display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+  display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 120;
 }
 .modal {
   width: 100%; max-width: 560px; max-height: 90vh; overflow: hidden;
@@ -246,8 +246,8 @@ button { font-family: inherit; cursor: pointer; }
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   background: var(--card-2); border: 1px solid var(--line); color: var(--text);
-  padding: 12px 20px; border-radius: 12px; box-shadow: var(--shadow); z-index: 100;
-  font-size: 13.5px; max-width: 80%;
+  padding: 12px 20px; border-radius: 12px; box-shadow: var(--shadow); z-index: 200;
+  font-size: 13.5px; max-width: 80%; pointer-events: none;
 }
 .toast.err { border-color: var(--bad); }
 .toast.ok { border-color: var(--good); }
@@ -298,6 +298,7 @@ button { font-family: inherit; cursor: pointer; }
 .gate-profile:hover { border-color: var(--accent); }
 .gate-profile .avatar { width: 40px; height: 40px; font-size: 18px; }
 .primary.big { padding: 14px 22px; font-size: 15px; border-radius: 12px; }
+.gate-version { margin-top: 20px; font-size: 12px; }
 
 /* ---------- Swatches ---------- */
 .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -341,6 +342,10 @@ button { font-family: inherit; cursor: pointer; }
 .primary.small { padding: 7px 12px; font-size: 12.5px; }
 .about-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
+/* Keep entry action buttons clear of the floating +button (fixed bottom-right). */
+@media (max-width: 960px) {
+  .entry-list { padding-right: 76px; }
+}
 @media (max-width: 640px) {
   .macros { grid-template-columns: repeat(2, 1fr); }
   .est-grid { grid-template-columns: repeat(2, 1fr); }

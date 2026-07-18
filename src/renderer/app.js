@@ -58,7 +58,11 @@ function applyTheme(theme) {
 }
 async function loadAppInfo() {
   const res = await window.api.app.info();
-  if (res.ok) { $('#dataPath').textContent = 'Data file: ' + res.data.dataPath; $('#appVersion').textContent = 'v' + res.data.version; }
+  if (res.ok) {
+    $('#dataPath').textContent = 'Data file: ' + res.data.dataPath;
+    $('#appVersion').textContent = 'v' + res.data.version;
+    const gv = $('#gateVersion'); if (gv) gv.textContent = 'Version ' + res.data.version;
+  }
 }
 
 /* ---------------- profiles ---------------- */
@@ -137,6 +141,7 @@ async function switchProfile(id) {
   renderProfileChip();
   $('#profileMenu').classList.add('hidden');
   $('#profileGate').classList.add('hidden');
+  closeModal('profilesModal'); // if switching from the Manage list, close it so the switch is visible
   await refresh();
 }
 function openProfileEdit(id) {
@@ -177,7 +182,7 @@ async function saveProfileEdit() {
   await loadProfiles();
   if (state.editingProfileId) {
     hydrateActive(); renderProfileChip();
-    if (!$('#profilesModal').classList.contains('hidden')) renderManageList();
+    openManage(); // return to the Manage list this edit was launched from
     toast('Profile updated', 'ok');
   } else {
     // create() switched to the new profile in main
@@ -425,6 +430,7 @@ function renderTrend(thisWeek, lastWeek) {
 /* ---------------- entry modal ---------------- */
 function openEntryModal(entry) {
   state.editingId = entry ? entry.id : null;
+  state.editingWasPending = !!(entry && entry.estimateStatus === 'pending');
   state.editReestimated = false;
   state.lastEstimate = null;
   $('#entryModalTitle').textContent = entry ? 'Edit entry' : 'Add something you ate or drank';
@@ -485,17 +491,25 @@ async function saveEntry() {
     return;
   }
 
-  // EDIT: save the shown numbers. done if re-estimated this session, else manual.
+  // EDIT. Capture the profile id before any await (a re-fired estimate needs it).
+  const pid = state.activeProfileId;
   const num = (id) => { const v = Number($('#' + id).value); return Number.isFinite(v) && v >= 0 ? v : 0; };
-  const entry = {
-    id: state.editingId, text, datetime, date: state.date,
-    calories: Math.round(num('fCalories')), carbs_g: num('fCarbs'), sugar_g: num('fSugar'),
-    protein_g: num('fProtein'), fat_g: num('fFat'),
-    estimateStatus: state.editReestimated ? 'done' : 'manual'
-  };
-  if (state.editReestimated && state.lastEstimate) { entry.items = state.lastEstimate.items; entry.notes = state.lastEstimate.notes; }
+  // Status: re-estimated -> done. Still-estimating and not re-estimated -> keep
+  // estimating (never silently pin a pending entry to a manual 0). Otherwise -> manual.
+  const status = state.editReestimated ? 'done' : (state.editingWasPending ? 'pending' : 'manual');
+  const entry = { id: state.editingId, text, datetime, date: state.date, estimateStatus: status };
+  if (status === 'pending') {
+    entry.calories = 0; entry.carbs_g = 0; entry.sugar_g = 0; entry.protein_g = 0; entry.fat_g = 0;
+    entry.items = []; entry.estimateError = '';
+  } else {
+    entry.calories = Math.round(num('fCalories')); entry.carbs_g = num('fCarbs'); entry.sugar_g = num('fSugar');
+    entry.protein_g = num('fProtein'); entry.fat_g = num('fFat');
+    if (state.editReestimated && state.lastEstimate) { entry.items = state.lastEstimate.items; entry.notes = state.lastEstimate.notes; }
+  }
   const res = await window.api.entries.update(entry);
-  if (res.ok) { closeModal('entryModal'); toast('Saved', 'ok'); refresh(); } else toast('Could not save: ' + res.error, 'err');
+  if (!res.ok) { toast('Could not save: ' + res.error, 'err'); return; }
+  closeModal('entryModal'); toast('Saved', 'ok'); await refresh();
+  if (status === 'pending') fireEstimate(pid, res.data); // keep estimating the (possibly edited) text
 }
 async function fireEstimate(profileId, entry) {
   try {
@@ -577,7 +591,11 @@ async function checkUpdates() {
 
 /* ---------------- modal + toast ---------------- */
 function showModal(id) { $('#' + id).classList.remove('hidden'); }
-function closeModal(id) { $('#' + id).classList.add('hidden'); }
+function closeModal(id) {
+  $('#' + id).classList.add('hidden');
+  // Closing Settings without saving must not leave a live-previewed theme applied.
+  if (id === 'settingsModal' && state.settings) applyTheme(state.settings.theme || 'auto');
+}
 let toastTimer = null;
 function toast(msg, kind) {
   const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (kind ? ' ' + kind : '');
