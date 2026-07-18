@@ -149,9 +149,10 @@ function openProfileEdit(id) {
   const p = id ? state.profiles.find(x => x.id === id) : null;
   $('#profileEditTitle').textContent = id ? 'Edit profile' : 'Create a profile';
   $('#profileNameInput').value = p ? p.name : '';
-  $('#profileAvatarInput').value = p ? (p.avatar || '') : '';
   state.pickedColor = p ? p.color : PALETTE[state.profiles.length % PALETTE.length];
+  state.pickedAvatar = p ? (p.avatar || '') : '';
   renderSwatches();
+  renderAvatarPicker();
   closeModal('profilesModal');
   showModal('profileEditModal');
   setTimeout(() => $('#profileNameInput').focus(), 50);
@@ -163,13 +164,31 @@ function renderSwatches() {
     b.className = 'swatch' + (c === state.pickedColor ? ' sel' : '');
     b.style.background = c;
     b.type = 'button';
+    if (c === state.pickedColor) b.innerHTML = '<span class="swatch-check">✓</span>';
     b.addEventListener('click', () => { state.pickedColor = c; renderSwatches(); });
+    wrap.appendChild(b);
+  }
+}
+const AVATARS = ['🦗', '🙂', '😎', '💪', '🔥', '⭐', '🍎', '🥑', '☕', '🐱', '🐶', '🦊', '🐻', '🍕', '🌮', '🎯'];
+function renderAvatarPicker() {
+  const wrap = $('#avatarPicker'); if (!wrap) return;
+  wrap.innerHTML = '';
+  const none = document.createElement('button');
+  none.type = 'button'; none.className = 'avatar-opt none' + (!state.pickedAvatar ? ' sel' : '');
+  none.textContent = 'Aa'; none.title = 'Use my initial';
+  none.addEventListener('click', () => { state.pickedAvatar = ''; renderAvatarPicker(); });
+  wrap.appendChild(none);
+  for (const em of AVATARS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'avatar-opt' + (em === state.pickedAvatar ? ' sel' : '');
+    b.textContent = em;
+    b.addEventListener('click', () => { state.pickedAvatar = em; renderAvatarPicker(); });
     wrap.appendChild(b);
   }
 }
 async function saveProfileEdit() {
   const name = $('#profileNameInput').value.trim();
-  const avatar = $('#profileAvatarInput').value.trim();
+  const avatar = state.pickedAvatar || '';
   if (!name) { toast('Please enter a name', 'err'); return; }
   let res;
   if (state.editingProfileId) {

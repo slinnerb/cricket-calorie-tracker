@@ -330,8 +330,15 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ---------- Swatches ---------- */
 .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
-.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
-.swatch.sel { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg); }
+.swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.swatch:hover { transform: scale(1.08); }
+.swatch.sel { border-color: var(--text); box-shadow: 0 0 0 3px var(--bg); }
+.swatch-check { color: #fff; font-size: 16px; font-weight: 800; line-height: 1; text-shadow: 0 1px 2px rgba(0,0,0,.45); }
+.avatar-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.avatar-opt { width: 40px; height: 40px; border-radius: 11px; border: 1px solid var(--line); background: var(--card); font-size: 20px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.avatar-opt.none { font-size: 13px; font-weight: 700; color: var(--muted); }
+.avatar-opt:hover { border-color: var(--accent); }
+.avatar-opt.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--card)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 32%, transparent); }
 .modal.narrow { max-width: 420px; }
 
 /* ---------- Manage profiles ---------- */

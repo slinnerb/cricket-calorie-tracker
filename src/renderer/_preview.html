@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cricket Calorie Tracker (preview)</title>
-  <link rel="stylesheet" href="styles.css?v9" />
+  <link rel="stylesheet" href="styles.css?v10" />
 </head>
 <body>
   <div id="app">
@@ -184,12 +184,12 @@
           <input type="text" id="profileNameInput" maxlength="40" placeholder="e.g. Eric" />
         </label>
         <label class="field">
-          <span>Color</span>
+          <span>Color <small class="muted">— tap to choose</small></span>
           <div id="colorSwatches" class="swatches"></div>
         </label>
-        <label class="field small">
-          <span>Emoji <small class="muted">(optional)</small></span>
-          <input type="text" id="profileAvatarInput" maxlength="4" placeholder="🙂" />
+        <label class="field">
+          <span>Icon <small class="muted">— tap one, or keep your initial</small></span>
+          <div id="avatarPicker" class="avatar-picker"></div>
         </label>
       </div>
       <div class="modal-foot">
@@ -304,8 +304,8 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="_mock.js?v9"></script>
-  <script src="charts.js?v9"></script>
-  <script src="app.js?v9"></script>
+  <script src="_mock.js?v10"></script>
+  <script src="charts.js?v10"></script>
+  <script src="app.js?v10"></script>
 </body>
 </html>
