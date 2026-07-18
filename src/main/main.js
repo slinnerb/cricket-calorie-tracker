@@ -5,10 +5,12 @@ const path = require('path');
 const fs = require('fs');
 const { URL } = require('url');
 const { ProfileManager } = require('./store');
+const { EstimateCache } = require('./estcache');
 const llm = require('./llm');
 const updater = require('./updater');
 
 let manager;
+let estCache;
 let mainWindow;
 
 function createWindow() {
@@ -43,6 +45,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   manager = new ProfileManager(app.getPath('userData'));
+  estCache = new EstimateCache(path.join(app.getPath('userData'), 'estimate-cache.json'));
   registerIpc();
   createWindow();
   updater.initUpdater(mainWindow);
@@ -79,18 +82,19 @@ function registerIpc() {
 
   // ---- AI ----
   // Synchronous estimate of arbitrary text (used by "re-estimate").
-  ipcMain.handle('ai:estimate', wrap(async (text) => llm.estimate(manager.getSettingsForLLM(), text)));
+  ipcMain.handle('ai:estimate', wrap(async (text) => estimateText(text)));
 
   // Async estimate that applies its result to an existing (pending) entry in a
   // SPECIFIC profile. The renderer fires this without blocking Save; it resolves
   // to the updated entry (done or error) so the row can be patched in place.
   ipcMain.handle('ai:estimateEntry', async (_evt, { profileId, entryId, text }) => {
     try {
-      const est = await llm.estimate(manager.getSettingsForLLM(), text);
+      const est = await estimateText(text);
       const updated = manager.applyEstimateToProfile(profileId, entryId, {
-        calories: est.calories, carbs_g: est.carbs_g, sugar_g: est.sugar_g,
-        protein_g: est.protein_g, fat_g: est.fat_g, items: est.items,
-        notes: est.notes, estimateStatus: 'done', estimateError: ''
+        calories: est.calories, calories_low: est.calories_low, calories_high: est.calories_high,
+        carbs_g: est.carbs_g, sugar_g: est.sugar_g, protein_g: est.protein_g, fat_g: est.fat_g,
+        items: est.items, notes: est.notes, confidence: est.confidence,
+        estimateStatus: 'done', estimateError: ''
       });
       return { ok: true, data: updated };
     } catch (err) {
@@ -152,3 +156,14 @@ function registerIpc() {
 }
 
 function safeOrigin(u) { try { return new URL(u).origin.toLowerCase(); } catch (_) { return ''; } }
+
+// Estimate with a persistent normalized-text cache: repeat foods return instantly
+// and identically (no per-call LLM drift), and the server is spared the work.
+async function estimateText(text) {
+  const s = manager.getSettingsForLLM();
+  const cached = estCache.get(s.ai, text);
+  if (cached) return cached;
+  const est = await llm.estimate(s, text);
+  estCache.set(s.ai, text, est);
+  return est;
+}

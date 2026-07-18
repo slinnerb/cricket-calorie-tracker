@@ -290,6 +290,12 @@ async function renderDay() {
   const totals = sumEntries(entries);
 
   $('#dayCalories').textContent = totals.calories.toLocaleString();
+  const rEl = $('#dayRange');
+  const showRange = totals.calories > 0 && totals.calories_low < totals.calories && (totals.calories_high - totals.calories_low) >= 20;
+  if (rEl) {
+    rEl.textContent = showRange ? `likely ${totals.calories_low.toLocaleString()}–${totals.calories_high.toLocaleString()} kcal` : '';
+    rEl.classList.toggle('hidden', !showRange);
+  }
   $('#dayDateLabel').textContent = formatFullDate(state.date);
   setMacro('Carbs', totals.carbs_g, MACRO_CAP.carbs);
   setMacro('Sugar', totals.sugar_g, MACRO_CAP.sugar);
@@ -325,7 +331,8 @@ function entryRow(e) {
   const li = document.createElement('li');
   li.className = 'entry';
   const macros = `C ${fmtG(e.carbs_g)} · S ${fmtG(e.sugar_g)} · P ${fmtG(e.protein_g)} · F ${fmtG(e.fat_g)}`;
-  const badge = e.estimateStatus === 'done' ? '<span class="badge-est">AI</span>' : '';
+  const conf = (e.estimateStatus === 'done' && e.confidence) ? ` <span class="conf-pill ${e.confidence}" title="AI confidence in this estimate">${e.confidence}</span>` : '';
+  const badge = e.estimateStatus === 'done' ? `<span class="badge-est">AI</span>${conf}` : '';
 
   const main = document.createElement('div'); main.className = 'e-main';
   const showMacros = (e.estimateStatus === 'done' || e.estimateStatus === 'manual');
@@ -335,9 +342,11 @@ function entryRow(e) {
   const time = document.createElement('div'); time.className = 'e-time'; time.textContent = formatTime(e.datetime);
   const right = calCell(e);
   const actions = document.createElement('div'); actions.className = 'e-actions';
-  const edit = mkBtn('✎', 'Edit', () => openEntryModal(e));
-  const del = mkBtn('🗑', 'Delete', () => deleteEntry(e));
-  actions.appendChild(edit); actions.appendChild(del);
+  if (e.estimateStatus === 'done' || e.estimateStatus === 'manual') {
+    actions.appendChild(mkBtn('⧉', 'Log this again', () => duplicateEntry(e)));
+  }
+  actions.appendChild(mkBtn('✎', 'Edit', () => openEntryModal(e)));
+  actions.appendChild(mkBtn('🗑', 'Delete', () => deleteEntry(e)));
 
   li.appendChild(time); li.appendChild(main); li.appendChild(right); li.appendChild(actions);
   return li;
@@ -378,6 +387,18 @@ function mkClass(tag, cls, txt, fn, title) {
 async function deleteEntry(e) {
   const res = await window.api.entries.remove(e.id);
   if (res.ok) { toast('Entry deleted', 'ok'); refresh(); } else toast('Could not delete: ' + res.error, 'err');
+}
+async function duplicateEntry(e) {
+  // "Had this again": copy the entry onto the day being viewed, at the current time.
+  const copy = {
+    text: e.text, date: state.date, datetime: combineDateTime(state.date, nowTimeInput()),
+    calories: e.calories, calories_low: e.calories_low, calories_high: e.calories_high,
+    carbs_g: e.carbs_g, sugar_g: e.sugar_g, protein_g: e.protein_g, fat_g: e.fat_g,
+    items: e.items, notes: e.notes, confidence: e.confidence,
+    estimateStatus: e.estimateStatus === 'done' ? 'done' : 'manual'
+  };
+  const res = await window.api.entries.add(copy);
+  if (res.ok) { toast('Logged again', 'ok'); refresh(); } else toast('Could not add: ' + res.error, 'err');
 }
 async function retryEstimate(e) {
   const pid = state.activeProfileId;
@@ -499,12 +520,20 @@ async function saveEntry() {
   const status = state.editReestimated ? 'done' : (state.editingWasPending ? 'pending' : 'manual');
   const entry = { id: state.editingId, text, datetime, date: state.date, estimateStatus: status };
   if (status === 'pending') {
-    entry.calories = 0; entry.carbs_g = 0; entry.sugar_g = 0; entry.protein_g = 0; entry.fat_g = 0;
+    entry.calories = 0; entry.calories_low = 0; entry.calories_high = 0; entry.confidence = '';
+    entry.carbs_g = 0; entry.sugar_g = 0; entry.protein_g = 0; entry.fat_g = 0;
     entry.items = []; entry.estimateError = '';
   } else {
     entry.calories = Math.round(num('fCalories')); entry.carbs_g = num('fCarbs'); entry.sugar_g = num('fSugar');
     entry.protein_g = num('fProtein'); entry.fat_g = num('fFat');
-    if (state.editReestimated && state.lastEstimate) { entry.items = state.lastEstimate.items; entry.notes = state.lastEstimate.notes; }
+    if (state.editReestimated && state.lastEstimate) {
+      entry.items = state.lastEstimate.items; entry.notes = state.lastEstimate.notes;
+      entry.confidence = state.lastEstimate.confidence;
+      entry.calories_low = state.lastEstimate.calories_low; entry.calories_high = state.lastEstimate.calories_high;
+    } else {
+      // manual override: no AI confidence, and the range collapses to the entered value
+      entry.confidence = ''; entry.calories_low = entry.calories; entry.calories_high = entry.calories;
+    }
   }
   const res = await window.api.entries.update(entry);
   if (!res.ok) { toast('Could not save: ' + res.error, 'err'); return; }
@@ -606,7 +635,12 @@ function toast(msg, kind) {
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function sumEntries(entries) {
-  return entries.reduce((a, e) => { a.calories += e.calories; a.carbs_g += e.carbs_g; a.sugar_g += e.sugar_g; a.protein_g += e.protein_g; a.fat_g += e.fat_g; return a; }, { calories: 0, carbs_g: 0, sugar_g: 0, protein_g: 0, fat_g: 0 });
+  return entries.reduce((a, e) => {
+    a.calories += e.calories;
+    a.calories_low += (e.calories_low > 0 ? e.calories_low : e.calories);
+    a.calories_high += (e.calories_high > 0 ? e.calories_high : e.calories);
+    a.carbs_g += e.carbs_g; a.sugar_g += e.sugar_g; a.protein_g += e.protein_g; a.fat_g += e.fat_g; return a;
+  }, { calories: 0, calories_low: 0, calories_high: 0, carbs_g: 0, sugar_g: 0, protein_g: 0, fat_g: 0 });
 }
 function localDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function parseLocalDate(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }

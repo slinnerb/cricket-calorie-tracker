@@ -472,12 +472,15 @@ function normalizeEntry(entry) {
     date: entry.date || localDate(new Date(entry.datetime || Date.now())),
     text: String(entry.text || '').trim(),
     calories: Math.round(num(entry.calories)),
+    calories_low: Math.round(num(entry.calories_low)),
+    calories_high: Math.round(num(entry.calories_high)),
     carbs_g: num(entry.carbs_g),
     sugar_g: num(entry.sugar_g),
     protein_g: num(entry.protein_g),
     fat_g: num(entry.fat_g),
     items: Array.isArray(entry.items) ? entry.items.map(normalizeItem) : [],
     notes: String(entry.notes || ''),
+    confidence: ['low', 'medium', 'high'].includes(entry.confidence) ? entry.confidence : '',
     estimateStatus: status,
     estimateError: entry.estimateError ? String(entry.estimateError).slice(0, 300) : ''
   };

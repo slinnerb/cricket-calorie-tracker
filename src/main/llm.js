@@ -27,7 +27,9 @@ Respond with ONLY a JSON object, no prose, no markdown fences, in exactly this s
   "items": [
     { "name": "string", "qty": number, "portion": "string", "calories": number, "carbs_g": number, "sugar_g": number, "protein_g": number, "fat_g": number }
   ],
-  "calories": number,      // total kcal for everything described
+  "calories": number,      // total kcal — your single best estimate
+  "calories_low": number,  // low end of a realistic range for the total
+  "calories_high": number, // high end of a realistic range for the total
   "carbs_g": number,       // total grams
   "sugar_g": number,       // total grams (subset of carbs)
   "protein_g": number,     // total grams
@@ -36,7 +38,7 @@ Respond with ONLY a JSON object, no prose, no markdown fences, in exactly this s
   "notes": "string"        // one short sentence on assumptions made
 }
 
-All numbers must be plain numbers (no units, no ranges). Round to whole calories and one decimal for grams. Totals must equal the sum of the items. If the input is not food or drink, return all zeros with a note explaining why.`;
+All numbers must be plain numbers (no units). Round to whole calories and one decimal for grams. The item calories must sum to "calories". Make the low/high range HONEST: keep it tight when the food and portion are clear, and widen it when the portion, recipe, or cooking method is uncertain — a wider range should go with lower confidence. If the input is not food or drink, return all zeros with a note explaining why.`;
 
 function estimatorMessages(text) {
   return [
@@ -81,7 +83,7 @@ async function chat(ai, messages) {
   if (!base) throw new Error('No AI server URL configured. Open Settings and set the base URL.');
 
   if (mode === 'ollama') {
-    const body = { model: ai.model || undefined, messages, stream: false, format: 'json', options: { temperature: 0.2 } };
+    const body = { model: ai.model || undefined, messages, stream: false, format: 'json', options: { temperature: 0 } };
     const res = await request(ai, base + '/api/chat', body);
     if (!ok(res)) throw httpError(res);
     return extractContent(parse(res.text), mode);
@@ -90,10 +92,10 @@ async function chat(ai, messages) {
   // OpenAI-compatible. Try with strict JSON mode; if the server rejects that
   // parameter (some local gateways 4xx on response_format), retry without it.
   const path = base + '/v1/chat/completions';
-  const withFmt = { model: ai.model || undefined, messages, stream: false, temperature: 0.2, response_format: { type: 'json_object' } };
+  const withFmt = { model: ai.model || undefined, messages, stream: false, temperature: 0, response_format: { type: 'json_object' } };
   let res = await request(ai, path, withFmt);
   if (!ok(res) && res.status >= 400 && res.status < 500) {
-    const noFmt = { model: ai.model || undefined, messages, stream: false, temperature: 0.2 };
+    const noFmt = { model: ai.model || undefined, messages, stream: false, temperature: 0 };
     const res2 = await request(ai, path, noFmt);
     if (ok(res2)) res = res2; // otherwise surface the original error below
   }
@@ -227,7 +229,18 @@ function sanitizeEstimate(p) {
     fat_g: round1(p.fat_g != null ? num(p.fat_g) : sum('fat_g'))
   };
   const conf = ['low', 'medium', 'high'].includes(p.confidence) ? p.confidence : 'medium';
-  return { ...total, items, confidence: conf, notes: String(p.notes || '').slice(0, 400) };
+
+  // Calorie range. Use the model's low/high when sane; otherwise derive a band
+  // from the confidence level so we always show honest uncertainty.
+  const band = conf === 'high' ? 0.08 : conf === 'low' ? 0.28 : 0.16;
+  let lo = p.calories_low != null ? Math.round(num(p.calories_low)) : Math.round(total.calories * (1 - band));
+  let hi = p.calories_high != null ? Math.round(num(p.calories_high)) : Math.round(total.calories * (1 + band));
+  if (lo > total.calories) lo = Math.round(total.calories * (1 - band));
+  if (hi < total.calories) hi = Math.round(total.calories * (1 + band));
+  lo = Math.max(0, Math.min(lo, total.calories));
+  hi = Math.max(hi, total.calories);
+
+  return { ...total, calories_low: lo, calories_high: hi, items, confidence: conf, notes: String(p.notes || '').slice(0, 400) };
 }
 
 function round1(n) { return Math.round(n * 10) / 10; }

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cricket Calorie Tracker (preview)</title>
-  <link rel="stylesheet" href="styles.css?v5" />
+  <link rel="stylesheet" href="styles.css?v6" />
 </head>
 <body>
   <div id="app">
@@ -48,6 +48,7 @@
         <div class="summary-card">
           <div class="cal-block">
             <div class="cal-number"><span id="dayCalories">0</span><small>kcal</small></div>
+            <div id="dayRange" class="day-range hidden"></div>
             <div id="dayGoalWrap" class="goal-wrap hidden">
               <div class="goal-bar"><div id="dayGoalFill" class="goal-fill"></div></div>
               <div id="dayGoalLabel" class="goal-label"></div>
@@ -289,8 +290,8 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="_mock.js?v5"></script>
-  <script src="charts.js?v5"></script>
-  <script src="app.js?v5"></script>
+  <script src="_mock.js?v6"></script>
+  <script src="charts.js?v6"></script>
+  <script src="app.js?v6"></script>
 </body>
 </html>

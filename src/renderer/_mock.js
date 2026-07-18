@@ -82,6 +82,7 @@
       return { name: name.charAt(0).toUpperCase() + name.slice(1), qty, calories: cal, carbs_g: Math.round(cal * 0.11 * 10) / 10, sugar_g: Math.round(cal * 0.05 * 10) / 10, protein_g: Math.round(cal * 0.05 * 10) / 10, fat_g: Math.round(cal * 0.04 * 10) / 10 };
     });
     const sum = (k) => items.reduce((a, it) => a + (it[k] || 0), 0);
-    return { calories: sum('calories'), carbs_g: Math.round(sum('carbs_g') * 10) / 10, sugar_g: Math.round(sum('sugar_g') * 10) / 10, protein_g: Math.round(sum('protein_g') * 10) / 10, fat_g: Math.round(sum('fat_g') * 10) / 10, items, confidence: 'medium', notes: 'Mock estimate for browser preview.' };
+    const cal = sum('calories');
+    return { calories: cal, calories_low: Math.round(cal * 0.84), calories_high: Math.round(cal * 1.16), carbs_g: Math.round(sum('carbs_g') * 10) / 10, sugar_g: Math.round(sum('sugar_g') * 10) / 10, protein_g: Math.round(sum('protein_g') * 10) / 10, fat_g: Math.round(sum('fat_g') * 10) / 10, items, confidence: 'medium', notes: 'Mock estimate for browser preview.' };
   }
 })();
