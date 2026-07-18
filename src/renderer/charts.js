@@ -68,8 +68,8 @@ function drawWeekChart(canvas, { labels, values, goal }) {
     roundRect(ctx, x, y, barW, Math.max(h, v > 0 ? 2 : 0), 6);
     ctx.fill();
 
-    // Value label above bar.
-    if (v > 0) {
+    // Value label above bar (skipped when there are many bars, e.g. a month).
+    if (v > 0 && n <= 14) {
       ctx.fillStyle = COL.text;
       ctx.font = '11px system-ui, sans-serif';
       ctx.textAlign = 'center';

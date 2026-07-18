@@ -34,6 +34,7 @@ ipcMain.handle('ai:estimate', wrap(async () => { throw new Error('skipped in smo
 ipcMain.handle('ai:estimateEntry', async () => ({ ok: true, data: null }));
 ipcMain.handle('ai:test', wrap(async () => ({ ok: true })));
 ipcMain.handle('ai:weekInsight', wrap(async () => 'A calm week.'));
+ipcMain.handle('ai:ask', wrap(async () => 'Mock answer.'));
 ipcMain.handle('hints:add', wrap(async (list) => manager.addActiveHints(list)));
 ipcMain.handle('hints:list', wrap(async () => manager.listActiveHints()));
 ipcMain.handle('data:export', wrap(async () => ({ canceled: true })));
@@ -92,7 +93,7 @@ app.whenReady().then(async () => {
       out.listOk = list.ok && list.data.length === 1;
       const up = await window.api.updates.getState();
       out.updatesOk = up.ok && up.data.status === 'dev-disabled';
-      out.tabs = document.querySelectorAll('.tab').length === 2;
+      out.tabs = document.querySelectorAll('.tab').length === 3;
       return out;
     })()`);
 

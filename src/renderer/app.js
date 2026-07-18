@@ -254,6 +254,8 @@ function wireEvents() {
   $('#setTheme').addEventListener('change', (e) => applyTheme(e.target.value));
   $('#setApiKey').addEventListener('input', (e) => { e.target.dataset.dirty = '1'; });
 
+  $('#askBtn').addEventListener('click', askQuestion);
+  $('#askInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') askQuestion(); });
   $('#checkUpdatesBtn').addEventListener('click', checkUpdates);
   $('#updateInstallBtn').addEventListener('click', () => window.api.updates.install());
   $('#updateDismissBtn').addEventListener('click', () => $('#updateBanner').classList.add('hidden'));
@@ -266,12 +268,13 @@ function setView(view) {
   state.view = view;
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
   $('#dayView').classList.toggle('hidden', view !== 'day');
-  $('#weekView').classList.toggle('hidden', view !== 'week');
+  $('#weekView').classList.toggle('hidden', view === 'day'); // week + month share the period view
   refresh();
 }
 function shiftDate(delta) {
   const d = parseLocalDate(state.date);
-  d.setDate(d.getDate() + delta * (state.view === 'week' ? 7 : 1));
+  if (state.view === 'month') d.setMonth(d.getMonth() + delta);
+  else d.setDate(d.getDate() + delta * (state.view === 'week' ? 7 : 1));
   state.date = localDate(d);
   $('#datePicker').value = state.date;
   refresh();
@@ -280,7 +283,7 @@ async function refresh() {
   if (!state.activeProfileId) return;
   $('#datePicker').value = state.date;
   if (state.view === 'day') await renderDay();
-  else await renderWeek();
+  else await renderPeriod();
 }
 
 /* ---------------- DAY view ---------------- */
@@ -407,9 +410,10 @@ async function retryEstimate(e) {
   fireEstimate(pid, e);
 }
 
-/* ---------------- WEEK view ---------------- */
-async function renderWeek() {
-  const { start, end, days } = weekRange(state.date);
+/* ---------------- WEEK / MONTH (period) view ---------------- */
+async function renderPeriod() {
+  const isMonth = state.view === 'month';
+  const { start, end, days } = isMonth ? monthRange(state.date) : weekRange(state.date);
   const res = await window.api.entries.inRange(start, end);
   const entries = res.ok ? res.data : [];
   const byDay = {};
@@ -417,12 +421,17 @@ async function renderWeek() {
   for (const e of entries) { const b = byDay[e.date]; if (!b) continue; b.calories += e.calories; b.carbs_g += e.carbs_g; b.sugar_g += e.sugar_g; b.protein_g += e.protein_g; b.fat_g += e.fat_g; b.count++; }
 
   const values = days.map(d => byDay[d].calories);
-  const labels = days.map(d => WEEKDAYS[parseLocalDate(d).getDay()]);
+  const labels = isMonth ? monthLabels(days) : days.map(d => WEEKDAYS[parseLocalDate(d).getDay()]);
   const total = values.reduce((a, b) => a + b, 0);
-  const loggedDays = days.filter(d => byDay[d].count > 0).length || 1;
+  const loggedCount = days.filter(d => byDay[d].count > 0).length;
+  const loggedDays = loggedCount || 1;
+  const goal = state.settings && state.settings.dailyGoal ? state.settings.dailyGoal : 0;
+
   $('#weekTotal').textContent = total.toLocaleString();
   $('#weekAvg').textContent = Math.round(total / loggedDays).toLocaleString();
-  $('#weekRangeLabel').textContent = `${formatShortDate(start)} – ${formatShortDate(end)}`;
+  $('#weekRangeLabel').textContent = isMonth ? monthTitle(state.date) : `${formatShortDate(start)} – ${formatShortDate(end)}`;
+  labelSibling('#weekTotal', isMonth ? 'month total kcal' : 'week total kcal');
+  labelSibling('#weekTrend', isMonth ? 'vs last month' : 'vs last week');
 
   const mt = days.reduce((a, d) => { a.carbs_g += byDay[d].carbs_g; a.sugar_g += byDay[d].sugar_g; a.protein_g += byDay[d].protein_g; a.fat_g += byDay[d].fat_g; return a; }, { carbs_g: 0, sugar_g: 0, protein_g: 0, fat_g: 0 });
   $('#wmCarbs').textContent = fmtG(mt.carbs_g / loggedDays);
@@ -430,24 +439,52 @@ async function renderWeek() {
   $('#wmProtein').textContent = fmtG(mt.protein_g / loggedDays);
   $('#wmFat').textContent = fmtG(mt.fat_g / loggedDays);
 
-  const prev = weekRange(shiftDays(start, -1));
+  const prev = isMonth ? monthRange(shiftMonthStr(start, -1)) : weekRange(shiftDays(start, -1));
   const prevRes = await window.api.entries.inRange(prev.start, prev.end);
   const prevTotal = sumEntries(prevRes.ok ? prevRes.data : []).calories;
   renderTrend(total, prevTotal);
-
-  const goal = state.settings && state.settings.dailyGoal ? state.settings.dailyGoal : 0;
   window.drawWeekChart($('#weekChart'), { labels, values, goal });
 
-  const avg = Math.round(total / loggedDays);
-  const trendPct = prevTotal ? Math.round(((total - prevTotal) / prevTotal) * 100) : null;
-  const agg = {
-    loggedDays, total, avg,
-    carbs: Math.round(mt.carbs_g / loggedDays), sugar: Math.round(mt.sugar_g / loggedDays),
-    protein: Math.round(mt.protein_g / loggedDays), fat: Math.round(mt.fat_g / loggedDays),
-    prevTotal, trendPct, goal
-  };
-  renderCoach(start, total, agg);   // B2
-  renderRatchet(end, goal);          // B4
+  renderConsistency(isMonth, days, byDay, goal, loggedCount); // A4
+
+  if (isMonth) { $('#weekCoach').classList.add('hidden'); $('#weekRatchet').classList.add('hidden'); }
+  else {
+    const avg = Math.round(total / loggedDays);
+    const trendPct = prevTotal ? Math.round(((total - prevTotal) / prevTotal) * 100) : null;
+    const agg = {
+      loggedDays, total, avg,
+      carbs: Math.round(mt.carbs_g / loggedDays), sugar: Math.round(mt.sugar_g / loggedDays),
+      protein: Math.round(mt.protein_g / loggedDays), fat: Math.round(mt.fat_g / loggedDays),
+      prevTotal, trendPct, goal
+    };
+    renderCoach(start, total, agg);   // B2
+    renderRatchet(end, goal);          // B4
+  }
+}
+// A4: gentle consistency line (week only). Never a red "failed" state.
+function renderConsistency(isMonth, days, byDay, goal, loggedCount) {
+  const el = $('#weekConsistency'); if (!el) return;
+  if (isMonth || !loggedCount) { el.classList.add('hidden'); return; }
+  let txt = `Logged ${loggedCount}/7 days`;
+  if (goal) {
+    const under = days.filter(d => byDay[d].count > 0 && byDay[d].calories <= goal).length;
+    txt += ` · under goal ${under}/${loggedCount}`;
+  }
+  el.textContent = txt;
+  el.classList.remove('hidden');
+}
+function labelSibling(sel, text) { const el = $(sel); if (el && el.nextElementSibling) el.nextElementSibling.textContent = text; }
+// B3: ask a plain-English question over your own log (last 30 days).
+async function askQuestion() {
+  const q = $('#askInput').value.trim();
+  if (!q) { $('#askInput').focus(); return; }
+  const ans = $('#askAnswer'), btn = $('#askBtn');
+  ans.className = 'ask-answer loading'; ans.classList.remove('hidden'); ans.textContent = '🦗 looking through your log…';
+  btn.disabled = true;
+  const res = await window.api.ai.ask(q);
+  btn.disabled = false;
+  if (res.ok) { ans.className = 'ask-answer'; ans.textContent = res.data; }
+  else { ans.className = 'ask-answer err'; ans.textContent = res.error; }
 }
 // B2: one supportive sentence about the week, from the LLM (cached per fingerprint).
 async function renderCoach(start, total, agg) {
@@ -750,6 +787,20 @@ function weekRange(dateStr) {
   const days = []; for (let i = 0; i < 7; i++) { const x = new Date(start); x.setDate(start.getDate() + i); days.push(localDate(x)); }
   return { start: days[0], end: days[6], days };
 }
+function monthRange(dateStr) {
+  const d = parseLocalDate(dateStr);
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  const days = [];
+  for (const x = new Date(first); x <= last; x.setDate(x.getDate() + 1)) days.push(localDate(new Date(x)));
+  return { start: days[0], end: days[days.length - 1], days };
+}
+function monthLabels(days) {
+  // sparse: label the 1st and each Monday so a ~30-bar chart stays readable
+  return days.map(ds => { const d = parseLocalDate(ds); return (d.getDate() === 1 || d.getDay() === 1) ? String(d.getDate()) : ''; });
+}
+function monthTitle(dateStr) { const d = parseLocalDate(dateStr); return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`; }
+function shiftMonthStr(dateStr, delta) { const d = parseLocalDate(dateStr); d.setMonth(d.getMonth() + delta); return localDate(d); }
 function combineDateTime(dateStr, timeStr) {
   const [y, m, d] = dateStr.split('-').map(Number); const [hh, mm] = (timeStr || '00:00').split(':').map(Number);
   return new Date(y, m - 1, d, hh || 0, mm || 0).toISOString();

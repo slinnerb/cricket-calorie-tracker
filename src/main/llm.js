@@ -268,4 +268,16 @@ function sanitizeEstimate(p) {
 
 function round1(n) { return Math.round(n * 10) / 10; }
 
-module.exports = { estimate, testConnection, weekInsight };
+// ---- ask-your-data (B3): answer a question over the user's own log ----
+const ASK_PROMPT = `You answer questions about the user's OWN food log. Use ONLY the data provided after the question. Be concise — one or two sentences — and include the relevant numbers. If the data doesn't contain enough to answer, say you don't have enough logged data for that. Never give medical, diet, or health advice; just report what's in the log.`;
+
+async function answerQuestion(settings, question, dataText) {
+  const ai = settings.ai || {};
+  const raw = await chat(ai, [
+    { role: 'system', content: ASK_PROMPT },
+    { role: 'user', content: `Question: ${question}\n\nMy food log (one entry per line):\n${dataText}` }
+  ], { json: false });
+  return String(raw || '').trim().replace(/\s+/g, ' ').slice(0, 500);
+}
+
+module.exports = { estimate, testConnection, weekInsight, answerQuestion };

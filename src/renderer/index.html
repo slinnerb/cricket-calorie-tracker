@@ -35,6 +35,7 @@
       <div class="tabs" role="tablist">
         <button class="tab active" data-view="day" role="tab">Day</button>
         <button class="tab" data-view="week" role="tab">Week</button>
+        <button class="tab" data-view="month" role="tab">Month</button>
       </div>
       <div class="datenav">
         <button id="prevBtn" class="nav-btn" title="Previous">‹</button>
@@ -85,6 +86,7 @@
           <div class="stat"><span class="stat-num" id="weekAvg">0</span><span class="stat-lbl">daily average</span></div>
           <div class="stat"><span class="stat-num" id="weekTrend">—</span><span class="stat-lbl">vs last week</span></div>
         </div>
+        <div id="weekConsistency" class="week-consistency hidden"></div>
         <div class="chart-card">
           <div class="chart-head">
             <span id="weekRangeLabel" class="muted"></span>
@@ -101,6 +103,13 @@
           <div class="wm"><span id="wmSugar">0 g</span><label>avg sugar</label></div>
           <div class="wm"><span id="wmProtein">0 g</span><label>avg protein</label></div>
           <div class="wm"><span id="wmFat">0 g</span><label>avg fat</label></div>
+        </div>
+        <div class="ask-card">
+          <div class="ask-row">
+            <input type="text" id="askInput" placeholder="Ask about your log — e.g. how much sugar this week?" />
+            <button id="askBtn" class="ghost">Ask</button>
+          </div>
+          <div id="askAnswer" class="ask-answer hidden"></div>
         </div>
       </section>
     </main>

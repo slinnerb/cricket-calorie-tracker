@@ -87,6 +87,23 @@ function registerIpc() {
   // One-sentence weekly coach line from the week's aggregates (B2).
   ipcMain.handle('ai:weekInsight', wrap(async (agg) => llm.weekInsight(manager.getSettingsForLLM(), agg)));
 
+  // Ask a plain-English question over the last 30 days of the active profile's log (B3).
+  ipcMain.handle('ai:ask', wrap(async (question) => {
+    const q = String(question || '').trim();
+    if (!q) throw new Error('Type a question first.');
+    const p = n => String(n).padStart(2, '0');
+    const t = new Date();
+    const end = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
+    const s = new Date(t); s.setDate(s.getDate() - 29);
+    const start = `${s.getFullYear()}-${p(s.getMonth() + 1)}-${p(s.getDate())}`;
+    const entries = manager.entriesInRange(start, end).filter(e => e.estimateStatus === 'done' || e.estimateStatus === 'manual');
+    if (!entries.length) throw new Error('No logged food in the last 30 days to answer from.');
+    const dataText = entries.slice(-140).reverse()
+      .map(e => `${e.date} ${e.text} = ${e.calories} kcal (carbs ${e.carbs_g}, sugar ${e.sugar_g}, protein ${e.protein_g}, fat ${e.fat_g})`)
+      .join('\n');
+    return llm.answerQuestion(manager.getSettingsForLLM(), q, dataText);
+  }));
+
   // ---- personalization hints (B1) ----
   ipcMain.handle('hints:add', wrap(async (list) => manager.addActiveHints(list)));
   ipcMain.handle('hints:list', wrap(async () => manager.listActiveHints()));

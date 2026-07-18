@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('api', {
     // specific profile; resolves to { ok, data: updatedEntry }.
     estimateEntry: (profileId, entryId, text) => invoke('ai:estimateEntry', { profileId, entryId, text }),
     weekInsight: (agg) => invoke('ai:weekInsight', agg),
+    ask: (question) => invoke('ai:ask', question),
     test: (overrideAi) => invoke('ai:test', overrideAi)
   },
   hints: {
