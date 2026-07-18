@@ -1,6 +1,6 @@
 {
   "name": "cricket-calorie-tracker",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A friendly daily food & calorie journal that estimates calories and macros from plain-English descriptions using a local AI.",
   "main": "src/main/main.js",
   "author": "Made for Eric",
