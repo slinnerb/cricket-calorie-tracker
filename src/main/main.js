@@ -84,6 +84,9 @@ function registerIpc() {
   // Synchronous estimate of arbitrary text (used by "re-estimate").
   ipcMain.handle('ai:estimate', wrap(async (text) => estimateText(text, manager.getActiveProfileId())));
 
+  // One-sentence weekly coach line from the week's aggregates (B2).
+  ipcMain.handle('ai:weekInsight', wrap(async (agg) => llm.weekInsight(manager.getSettingsForLLM(), agg)));
+
   // ---- personalization hints (B1) ----
   ipcMain.handle('hints:add', wrap(async (list) => manager.addActiveHints(list)));
   ipcMain.handle('hints:list', wrap(async () => manager.listActiveHints()));

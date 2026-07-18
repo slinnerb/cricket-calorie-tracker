@@ -71,7 +71,7 @@ async function testConnection(settings) {
   const raw = await chat(ai, [
     { role: 'system', content: 'Reply with only the word: OK' },
     { role: 'user', content: 'Say OK.' }
-  ]);
+  ], { json: false });
   return {
     ok: true,
     ms: Date.now() - started,
@@ -80,15 +80,33 @@ async function testConnection(settings) {
   };
 }
 
+// ---- weekly coach line (B2): one supportive sentence from the week's aggregates ----
+const WEEK_COACH_PROMPT = `You are a supportive, concise nutrition coach. Given a person's weekly totals, reply with ONE short, friendly, factual sentence (about 12-22 words) describing the week and any change from last week. Be encouraging and specific. Never judge, shame, diagnose, or give medical advice. No hashtags, no quotation marks. Output only the sentence.`;
+
+async function weekInsight(settings, agg) {
+  const ai = settings.ai || {};
+  const g = agg || {};
+  const goalTxt = g.goal ? `${g.goal} kcal/day` : 'none set';
+  const trend = g.prevTotal ? `${g.trendPct <= 0 ? 'down' : 'up'} ${Math.abs(g.trendPct)}% from last week` : 'no prior week to compare';
+  const user = `This week the person logged ${g.loggedDays} day(s): total ${g.total} kcal, daily average ${g.avg} kcal. Average per day — carbs ${g.carbs} g, sugar ${g.sugar} g, protein ${g.protein} g, fat ${g.fat} g. Trend: ${trend}. Daily goal: ${goalTxt}. Write the one-sentence summary.`;
+  const raw = await chat(ai, [
+    { role: 'system', content: WEEK_COACH_PROMPT },
+    { role: 'user', content: user }
+  ], { json: false });
+  return String(raw || '').trim().replace(/^["']+|["']+$/g, '').replace(/\s+/g, ' ').slice(0, 220);
+}
+
 // ---- transport ----
 
-async function chat(ai, messages) {
+async function chat(ai, messages, opts) {
+  const wantJson = !opts || opts.json !== false; // estimates force JSON; the coach line is plain text
   const mode = ai.mode === 'ollama' ? 'ollama' : 'openai';
   const base = String(ai.baseUrl || '').replace(/\/+$/, '');
   if (!base) throw new Error('No AI server URL configured. Open Settings and set the base URL.');
 
   if (mode === 'ollama') {
-    const body = { model: ai.model || undefined, messages, stream: false, format: 'json', options: { temperature: 0 } };
+    const body = { model: ai.model || undefined, messages, stream: false, options: { temperature: 0 } };
+    if (wantJson) body.format = 'json';
     const res = await request(ai, base + '/api/chat', body);
     if (!ok(res)) throw httpError(res);
     return extractContent(parse(res.text), mode);
@@ -97,11 +115,11 @@ async function chat(ai, messages) {
   // OpenAI-compatible. Try with strict JSON mode; if the server rejects that
   // parameter (some local gateways 4xx on response_format), retry without it.
   const path = base + '/v1/chat/completions';
-  const withFmt = { model: ai.model || undefined, messages, stream: false, temperature: 0, response_format: { type: 'json_object' } };
-  let res = await request(ai, path, withFmt);
-  if (!ok(res) && res.status >= 400 && res.status < 500) {
-    const noFmt = { model: ai.model || undefined, messages, stream: false, temperature: 0 };
-    const res2 = await request(ai, path, noFmt);
+  const body0 = { model: ai.model || undefined, messages, stream: false, temperature: 0 };
+  const first = wantJson ? { ...body0, response_format: { type: 'json_object' } } : body0;
+  let res = await request(ai, path, first);
+  if (wantJson && !ok(res) && res.status >= 400 && res.status < 500) {
+    const res2 = await request(ai, path, body0);
     if (ok(res2)) res = res2; // otherwise surface the original error below
   }
   if (!ok(res)) throw httpError(res);
@@ -250,4 +268,4 @@ function sanitizeEstimate(p) {
 
 function round1(n) { return Math.round(n * 10) / 10; }
 
-module.exports = { estimate, testConnection };
+module.exports = { estimate, testConnection, weekInsight };

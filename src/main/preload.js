@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('api', {
     // async: estimates `text` and applies the result to an existing entry in a
     // specific profile; resolves to { ok, data: updatedEntry }.
     estimateEntry: (profileId, entryId, text) => invoke('ai:estimateEntry', { profileId, entryId, text }),
+    weekInsight: (agg) => invoke('ai:weekInsight', agg),
     test: (overrideAi) => invoke('ai:test', overrideAi)
   },
   hints: {

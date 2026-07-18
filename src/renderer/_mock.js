@@ -64,7 +64,8 @@
         if (i >= 0) { p.entries[i] = { ...p.entries[i], ...est, estimateStatus: 'done' }; write(d); }
         r({ ok: true, data: i >= 0 ? p.entries[i] : null });
       }, 2200)),
-      test: () => new Promise(r => setTimeout(() => r({ ok: true, data: { ms: 240, model: 'qwen2.5:7b' } }), 500))
+      test: () => new Promise(r => setTimeout(() => r({ ok: true, data: { ms: 240, model: 'qwen2.5:7b' } }), 500)),
+      weekInsight: (agg) => new Promise(r => setTimeout(() => r({ ok: true, data: `You logged ${agg.loggedDays} day(s) and averaged ${agg.avg} kcal — ${agg.trendPct != null && agg.trendPct < 0 ? 'down ' + Math.abs(agg.trendPct) + '% from last week, nice work' : 'keep the steady rhythm going'}.` }), 800))
     },
     hints: { add: (list) => ok({ rev: 1, count: (list || []).length }), list: () => ok([]) },
     data: { export: () => ok({ canceled: true }), import: () => ok({ canceled: true }) },

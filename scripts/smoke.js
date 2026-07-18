@@ -33,6 +33,7 @@ ipcMain.handle('entries:delete', wrap(async (id) => manager.deleteEntry(id)));
 ipcMain.handle('ai:estimate', wrap(async () => { throw new Error('skipped in smoke'); }));
 ipcMain.handle('ai:estimateEntry', async () => ({ ok: true, data: null }));
 ipcMain.handle('ai:test', wrap(async () => ({ ok: true })));
+ipcMain.handle('ai:weekInsight', wrap(async () => 'A calm week.'));
 ipcMain.handle('hints:add', wrap(async (list) => manager.addActiveHints(list)));
 ipcMain.handle('hints:list', wrap(async () => manager.listActiveHints()));
 ipcMain.handle('data:export', wrap(async () => ({ canceled: true })));

@@ -437,6 +437,55 @@ async function renderWeek() {
 
   const goal = state.settings && state.settings.dailyGoal ? state.settings.dailyGoal : 0;
   window.drawWeekChart($('#weekChart'), { labels, values, goal });
+
+  const avg = Math.round(total / loggedDays);
+  const trendPct = prevTotal ? Math.round(((total - prevTotal) / prevTotal) * 100) : null;
+  const agg = {
+    loggedDays, total, avg,
+    carbs: Math.round(mt.carbs_g / loggedDays), sugar: Math.round(mt.sugar_g / loggedDays),
+    protein: Math.round(mt.protein_g / loggedDays), fat: Math.round(mt.fat_g / loggedDays),
+    prevTotal, trendPct, goal
+  };
+  renderCoach(start, total, agg);   // B2
+  renderRatchet(end, goal);          // B4
+}
+// B2: one supportive sentence about the week, from the LLM (cached per fingerprint).
+async function renderCoach(start, total, agg) {
+  const box = $('#weekCoach'), txt = $('#weekCoachText');
+  if (!box) return;
+  if (!(total > 0) || agg.loggedDays < 1) { box.classList.add('hidden'); return; }
+  state.coachCache = state.coachCache || {};
+  const fp = `${state.activeProfileId}|${start}|${total}|${agg.avg}|${agg.loggedDays}`;
+  if (state.coachCache[fp]) { txt.textContent = state.coachCache[fp]; box.classList.remove('hidden', 'loading'); return; }
+  txt.textContent = 'Looking at your week…'; box.classList.remove('hidden'); box.classList.add('loading');
+  state.coachFp = fp;
+  const res = await window.api.ai.weekInsight(agg);
+  if (state.coachFp !== fp) return; // navigated away before it returned
+  box.classList.remove('loading');
+  if (res.ok && res.data) { state.coachCache[fp] = res.data; txt.textContent = res.data; box.classList.remove('hidden'); }
+  else { box.classList.add('hidden'); }
+}
+// B4: suggest next week's goal ~4% below the trailing 28-day average intake.
+async function renderRatchet(end, goal) {
+  const box = $('#weekRatchet'); if (!box) return;
+  const res = await window.api.entries.inRange(shiftDays(end, -27), end);
+  const entries = res.ok ? res.data : [];
+  const byDay = {};
+  for (const e of entries) byDay[e.date] = (byDay[e.date] || 0) + e.calories;
+  const loggedDays = Object.values(byDay).filter(v => v > 0).length;
+  const totalWin = Object.values(byDay).reduce((a, b) => a + b, 0);
+  const trailingAvg = loggedDays ? Math.round(totalWin / loggedDays) : 0;
+  const FLOOR = 1400;
+  const suggest = Math.max(FLOOR, Math.round((trailingAvg * 0.96) / 10) * 10);
+  const worth = loggedDays >= 5 && trailingAvg > FLOOR + 50 && suggest < trailingAvg && (!goal || suggest < goal - 10);
+  if (!worth) { box.classList.add('hidden'); return; }
+  $('#ratchetText').innerHTML = `You're averaging <b>${trailingAvg.toLocaleString()}</b> kcal/day over your last ${loggedDays} logged days. Aim for <b>${suggest.toLocaleString()}</b> next week? <span class="muted">(~4% lower)</span>`;
+  $('#ratchetBtn').onclick = async () => {
+    const r = await window.api.settings.set({ dailyGoal: suggest });
+    if (r.ok) { state.settings = r.data; toast(`Goal set to ${suggest.toLocaleString()} kcal/day`, 'ok'); refresh(); }
+    else toast('Could not set goal: ' + r.error, 'err');
+  };
+  box.classList.remove('hidden');
 }
 function renderTrend(thisWeek, lastWeek) {
   const el = $('#weekTrend'); el.className = 'stat-num';

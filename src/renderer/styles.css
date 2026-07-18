@@ -156,6 +156,13 @@ button { font-family: inherit; cursor: pointer; }
 .empty p { margin: 4px 0; }
 
 /* ---------- Week view ---------- */
+.week-coach { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--card)), var(--card)); border: 1px solid var(--line); border-radius: 14px; padding: 15px 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
+.week-coach .coach-icon { font-size: 22px; flex: none; }
+.week-coach #weekCoachText { font-size: 14.5px; font-weight: 550; }
+.week-coach.loading #weekCoachText { color: var(--muted); font-weight: 500; font-style: italic; }
+.week-ratchet { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--good); border-radius: 12px; padding: 14px 16px; margin-top: 16px; }
+.week-ratchet .ratchet-text { flex: 1; font-size: 13.5px; }
+.week-ratchet .ratchet-text b { font-variant-numeric: tabular-nums; }
 .week-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; text-align: center; }
 .stat-num { display: block; font-size: 30px; font-weight: 750; letter-spacing: -.5px; }

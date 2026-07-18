@@ -79,6 +79,7 @@
 
       <!-- ============ WEEK VIEW ============ -->
       <section id="weekView" class="view hidden">
+        <div id="weekCoach" class="week-coach hidden"><span class="coach-icon">🦗</span><span id="weekCoachText"></span></div>
         <div class="week-stats">
           <div class="stat"><span class="stat-num" id="weekTotal">0</span><span class="stat-lbl">week total kcal</span></div>
           <div class="stat"><span class="stat-num" id="weekAvg">0</span><span class="stat-lbl">daily average</span></div>
@@ -90,6 +91,10 @@
             <span class="legend"><i class="lg-bar"></i> calories <i class="lg-goal"></i> goal</span>
           </div>
           <canvas id="weekChart" width="900" height="300"></canvas>
+        </div>
+        <div id="weekRatchet" class="week-ratchet hidden">
+          <div class="ratchet-text"><span id="ratchetText"></span></div>
+          <button id="ratchetBtn" class="primary small">Set as my goal</button>
         </div>
         <div class="week-macros" id="weekMacros">
           <div class="wm"><span id="wmCarbs">0 g</span><label>avg carbs</label></div>
