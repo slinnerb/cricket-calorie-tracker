@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+release/
+dist/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local env / secrets (never commit tokens)
+.env
+.env.*
+*.local
+
+# App runtime data (never in repo)
+data.json
+global.json
+profiles/
+*.corrupt-*
+*.migrated-*
+*.deleted-*

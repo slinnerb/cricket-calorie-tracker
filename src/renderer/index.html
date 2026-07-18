@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cricket Calorie Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">🦗</span>
+        <div class="brand-text">
+          <h1>Cricket</h1>
+          <span class="tagline">daily food &amp; calorie journal</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="profileChip" class="profile-chip" title="Switch profile">
+          <span id="profileAvatar" class="avatar">🙂</span>
+          <span id="profileName" class="profile-name">—</span>
+          <span class="chev">▾</span>
+        </button>
+        <div id="profileMenu" class="profile-menu hidden"></div>
+        <button id="btnSettings" class="icon-btn" title="Settings" aria-label="Settings">⚙️</button>
+      </div>
+    </header>
+
+    <!-- Controls: view tabs + date nav -->
+    <div class="controls">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-view="day" role="tab">Day</button>
+        <button class="tab" data-view="week" role="tab">Week</button>
+      </div>
+      <div class="datenav">
+        <button id="prevBtn" class="nav-btn" title="Previous">‹</button>
+        <input type="date" id="datePicker" class="date-input" />
+        <button id="nextBtn" class="nav-btn" title="Next">›</button>
+        <button id="todayBtn" class="today-btn">Today</button>
+      </div>
+    </div>
+
+    <main class="content">
+      <!-- ============ DAY VIEW ============ -->
+      <section id="dayView" class="view">
+        <div class="summary-card">
+          <div class="cal-block">
+            <div class="cal-number"><span id="dayCalories">0</span><small>kcal</small></div>
+            <div id="dayGoalWrap" class="goal-wrap hidden">
+              <div class="goal-bar"><div id="dayGoalFill" class="goal-fill"></div></div>
+              <div id="dayGoalLabel" class="goal-label"></div>
+            </div>
+            <div id="dayDateLabel" class="date-label"></div>
+          </div>
+          <div class="macros" id="dayMacros">
+            <div class="macro" data-k="carbs"><span class="m-val" id="mCarbs">0 g</span><span class="m-lbl">Carbs</span><div class="m-bar"><i id="barCarbs"></i></div></div>
+            <div class="macro" data-k="sugar"><span class="m-val" id="mSugar">0 g</span><span class="m-lbl">Sugar</span><div class="m-bar"><i id="barSugar"></i></div></div>
+            <div class="macro" data-k="protein"><span class="m-val" id="mProtein">0 g</span><span class="m-lbl">Protein</span><div class="m-bar"><i id="barProtein"></i></div></div>
+            <div class="macro" data-k="fat"><span class="m-val" id="mFat">0 g</span><span class="m-lbl">Fat</span><div class="m-bar"><i id="barFat"></i></div></div>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <h2>Entries</h2>
+          <span id="entryCount" class="muted"></span>
+        </div>
+        <ul id="entryList" class="entry-list"></ul>
+        <div id="dayEmpty" class="empty hidden">
+          <div class="empty-emoji">🍽️</div>
+          <p>Nothing logged yet for this day.</p>
+          <p class="muted">Tap the <strong>+</strong> button to add a bite, a sip, or a full meal.</p>
+        </div>
+      </section>
+
+      <!-- ============ WEEK VIEW ============ -->
+      <section id="weekView" class="view hidden">
+        <div class="week-stats">
+          <div class="stat"><span class="stat-num" id="weekTotal">0</span><span class="stat-lbl">week total kcal</span></div>
+          <div class="stat"><span class="stat-num" id="weekAvg">0</span><span class="stat-lbl">daily average</span></div>
+          <div class="stat"><span class="stat-num" id="weekTrend">—</span><span class="stat-lbl">vs last week</span></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-head">
+            <span id="weekRangeLabel" class="muted"></span>
+            <span class="legend"><i class="lg-bar"></i> calories <i class="lg-goal"></i> goal</span>
+          </div>
+          <canvas id="weekChart" width="900" height="300"></canvas>
+        </div>
+        <div class="week-macros" id="weekMacros">
+          <div class="wm"><span id="wmCarbs">0 g</span><label>avg carbs</label></div>
+          <div class="wm"><span id="wmSugar">0 g</span><label>avg sugar</label></div>
+          <div class="wm"><span id="wmProtein">0 g</span><label>avg protein</label></div>
+          <div class="wm"><span id="wmFat">0 g</span><label>avg fat</label></div>
+        </div>
+      </section>
+    </main>
+
+    <button id="fab" class="fab" title="Add entry" aria-label="Add entry">+</button>
+  </div>
+
+  <!-- ============ PROFILE GATE (first run / no active profile) ============ -->
+  <div id="profileGate" class="gate hidden">
+    <div class="gate-inner">
+      <div class="gate-logo">🦗</div>
+      <h1>Welcome to Cricket</h1>
+      <p class="muted">A private food &amp; calorie journal. Who's using this?</p>
+      <div id="gateProfiles" class="gate-profiles"></div>
+      <button id="gateCreateBtn" class="primary big">+ Create a profile</button>
+    </div>
+  </div>
+
+  <!-- ============ ADD / EDIT ENTRY MODAL ============ -->
+  <div id="entryModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="entryModalTitle">Add something you ate or drank</h3>
+        <button class="icon-btn" data-close="entryModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="field">
+          <span>What did you have?</span>
+          <textarea id="foodText" rows="3" placeholder="e.g. 3 oreos and a coffee with milk"></textarea>
+        </label>
+        <div class="row">
+          <label class="field small">
+            <span>Time</span>
+            <input type="time" id="foodTime" />
+          </label>
+          <div id="addHint" class="add-hint muted">The calories are estimated automatically after you save.</div>
+        </div>
+
+        <!-- Numbers + items: shown when editing an existing entry -->
+        <div id="editBlock" class="hidden">
+          <div class="row">
+            <button id="reestimateBtn" class="ghost">✨ Re-estimate from text</button>
+            <span id="reestimateStatus" class="muted"></span>
+          </div>
+          <div class="est-grid">
+            <label class="field small"><span>Calories</span><input type="number" id="fCalories" min="0" step="1" /></label>
+            <label class="field small"><span>Carbs (g)</span><input type="number" id="fCarbs" min="0" step="0.1" /></label>
+            <label class="field small"><span>Sugar (g)</span><input type="number" id="fSugar" min="0" step="0.1" /></label>
+            <label class="field small"><span>Protein (g)</span><input type="number" id="fProtein" min="0" step="0.1" /></label>
+            <label class="field small"><span>Fat (g)</span><input type="number" id="fFat" min="0" step="0.1" /></label>
+          </div>
+          <div id="estItems" class="est-items"></div>
+          <div id="estNotes" class="est-notes muted"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="ghost" data-close="entryModal">Cancel</button>
+        <button id="saveEntryBtn" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PROFILE EDIT MODAL (create / rename) ============ -->
+  <div id="profileEditModal" class="modal-backdrop hidden">
+    <div class="modal narrow">
+      <div class="modal-head">
+        <h3 id="profileEditTitle">Create a profile</h3>
+        <button class="icon-btn" data-close="profileEditModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="field">
+          <span>Name</span>
+          <input type="text" id="profileNameInput" maxlength="40" placeholder="e.g. Eric" />
+        </label>
+        <label class="field">
+          <span>Color</span>
+          <div id="colorSwatches" class="swatches"></div>
+        </label>
+        <label class="field small">
+          <span>Emoji <small class="muted">(optional)</small></span>
+          <input type="text" id="profileAvatarInput" maxlength="4" placeholder="🙂" />
+        </label>
+      </div>
+      <div class="modal-foot">
+        <button class="ghost" data-close="profileEditModal">Cancel</button>
+        <button id="saveProfileBtn" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MANAGE PROFILES MODAL ============ -->
+  <div id="profilesModal" class="modal-backdrop hidden">
+    <div class="modal narrow">
+      <div class="modal-head">
+        <h3>Profiles</h3>
+        <button class="icon-btn" data-close="profilesModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <ul id="manageList" class="manage-list"></ul>
+        <button id="manageAddBtn" class="ghost full">+ Add a profile</button>
+      </div>
+      <div class="modal-foot">
+        <button class="ghost" data-close="profilesModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS MODAL ============ -->
+  <div id="settingsModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Settings</h3>
+        <button class="icon-btn" data-close="settingsModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <h4 class="group-title">AI nutrition engine <small class="muted">(shared on this PC)</small></h4>
+        <div class="row">
+          <label class="field small">
+            <span>Format</span>
+            <select id="setMode">
+              <option value="ollama">Ollama native (/api/chat)</option>
+              <option value="openai">OpenAI-compatible (/v1/chat)</option>
+            </select>
+          </label>
+          <label class="field grow">
+            <span>Server base URL</span>
+            <input type="text" id="setBaseUrl" placeholder="https://ai.wrenchandram.com" />
+          </label>
+        </div>
+        <div class="row">
+          <label class="field grow">
+            <span>Model name</span>
+            <input type="text" id="setModel" placeholder="e.g. qwen2.5:7b" />
+          </label>
+          <label class="field grow">
+            <span>API token <small class="muted">(if required)</small></span>
+            <input type="password" id="setApiKey" placeholder="leave blank if none" />
+          </label>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="setInsecure" />
+          <span>Allow self-signed certificate (needed for local HTTPS / Caddy on the LAN)</span>
+        </label>
+        <div class="row test-row">
+          <button id="testBtn" class="ghost">Test connection</button>
+          <span id="testResult" class="test-result"></span>
+        </div>
+
+        <h4 class="group-title">Daily goal <small class="muted">(this profile)</small></h4>
+        <label class="field small">
+          <span>Target calories per day <small class="muted">(blank = no goal)</small></span>
+          <input type="number" id="setGoal" min="0" step="50" placeholder="e.g. 2000" />
+        </label>
+
+        <h4 class="group-title">Appearance <small class="muted">(this profile)</small></h4>
+        <label class="field small">
+          <span>Theme</span>
+          <select id="setTheme">
+            <option value="auto">Match system</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </label>
+
+        <h4 class="group-title">Your data</h4>
+        <p class="muted small-p">Everything is stored locally on this PC. Use export to keep a backup.</p>
+        <div class="row">
+          <button id="exportBtn" class="ghost">Export backup…</button>
+          <button id="importBtn" class="ghost">Import backup…</button>
+        </div>
+        <div id="dataPath" class="muted tiny"></div>
+
+        <h4 class="group-title">About</h4>
+        <div class="about-row">
+          <span class="muted">Cricket Calorie Tracker <span id="appVersion">—</span></span>
+          <button id="checkUpdatesBtn" class="ghost">Check for updates</button>
+        </div>
+        <div id="updateStatusLine" class="muted tiny"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="ghost" data-close="settingsModal">Close</button>
+        <button id="saveSettingsBtn" class="primary">Save settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- update banner -->
+  <div id="updateBanner" class="update-banner hidden">
+    <span id="updateBannerText"></span>
+    <button id="updateInstallBtn" class="primary small">Restart &amp; update</button>
+    <button id="updateDismissBtn" class="icon-btn">✕</button>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="charts.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

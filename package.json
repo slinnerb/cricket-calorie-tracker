@@ -1,0 +1,65 @@
+{
+  "name": "cricket-calorie-tracker",
+  "version": "1.0.0",
+  "description": "A friendly daily food & calorie journal that estimates calories and macros from plain-English descriptions using a local AI.",
+  "main": "src/main/main.js",
+  "author": "Made for Eric",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "smoke": "electron scripts/smoke.js",
+    "test:store": "electron scripts/store.test.js",
+    "pack": "electron-builder --win --dir",
+    "dist": "electron-builder --win",
+    "release:patch": "npm version patch -m \"v%s\" && git push --follow-tags && electron-builder --win --publish always",
+    "release:minor": "npm version minor -m \"v%s\" && git push --follow-tags && electron-builder --win --publish always",
+    "release:major": "npm version major -m \"v%s\" && git push --follow-tags && electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9",
+    "electron-log": "^5.2.0"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.cricket.calorietracker",
+    "productName": "Cricket Calorie Tracker",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "!src/renderer/_preview.html",
+      "!src/renderer/_mock.js"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Cricket Calorie Tracker"
+    },
+    "portable": {
+      "artifactName": "CricketCalorieTracker-portable.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "slinnerb",
+        "repo": "cricket-calorie-tracker",
+        "releaseType": "release"
+      }
+    ]
+  }
+}
